@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <a href="admin/login.html">Admin</a>
+</nav>
+
+<div class="container">
+
+  <!-- Search Card -->
+  <div class="card" style="margin-top:1rem">
+    <div class="search-form" id="searchForm">
+      <div class="form-group">
+        <label>From</label>
+        <select id="fromCity"><option value="">Loading...</option></select>
+      </div>
+      <div class="form-group">
+        <label>To</label>
+        <select id="toCity"><option value="">Loading...</option></select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="flightDate" />
+      </div>
+      <button class="btn btn-primary" onclick="search()">Search</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  // Set default date to today
+  document.getElementById('flightDate').value = new Date().toISOString().split('T')[0];
+
+  // Load cities into dropdowns
+  async function loadCities() {
+  try {
+    const cities = await api.getCities();
+    const opts = cities.map(c => `<option value="${c._id}">${c.city_name}</option>`).join('');
+    document.getElementById('fromCity').innerHTML = `<option value="">Select city</option>${opts}`;
+    document.getElementById('toCity').innerHTML   = `<option value="">Select city</option>${opts}`;
+  } catch (err) {
+    console.error('Failed to load cities:', err);
+    document.getElementById('fromCity').innerHTML = `<option value="">Failed to load</option>`;
+    document.getElementById('toCity').innerHTML   = `<option value="">Failed to load</option>`;
+  }
+}
+
+  async function search() {
+    const from = document.getElementById('fromCity').value;
+    const to   = document.getElementById('toCity').value;
+    const date = document.getElementById('flightDate').value;
+    const resultsEl = document.getElementById('results');
+
+    if (!from || !to || !date) {
+      resultsEl.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`;
+      return;
+    }
+    if (from === to) {
+      resultsEl.innerHTML = `<div class="alert alert-error">Departure and arrival cities cannot be the same.</div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = `<p class="empty">Searching...</p>`;
+
+    try {
+      const data = await api.searchFlights({ from, to, date, connected: true });
+      renderResults(data);
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="alert alert-error">Something went wrong. Please try again.</div>`;
+    }
+  }
+
+  function formatTime(dt) {
+    return new Date(dt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatDuration(dep, arr) {
+    const mins = Math.round((new Date(arr) - new Date(dep)) / 60000);
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
+
+  function renderResults(data) {
+    const el = document.getElementById('results');
+    const { direct, connected } = data;
+
+    if (!direct.length && !connected.length) {
+      el.innerHTML = `<div class="empty">😕 No flights found for this route and date.</div>`;
+      return;
+    }
+
+    let html = '';
+
+    if (direct.length) {
+      html += `<p class="section-title">Direct Flights</p>`;
+      html += direct.map(f => `
+        <div class="flight-card">
+          <div>
+            <div class="flight-route">
+              ${f.from_city.city_name}
+              <span class="arrow">→</span>
+              ${f.to_city.city_name}
+              <span class="badge badge-green">Direct</span>
+            </div>
+            <div class="flight-times">
+              ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
+              &nbsp;·&nbsp; ${formatDuration(f.departure_time, f.arrival_time)}
+              &nbsp;·&nbsp; ${f.flight_id}
+            </div>
+          </div>
+          <div class="flight-meta">
+            <span class="flight-price">${f.price} ₺</span>
+            <span class="flight-seats">${f.seats_available} seats left</span>
+            <button class="btn btn-primary" style="margin-top:0.4rem"
+              onclick="book('${f._id}', 'direct')">Book</button>
+          </div>
+        </div>`).join('');
+    }
+
+    if (connected.length) {
+      html += `<p class="section-title">Connecting Flights</p>`;
+      html += connected.map((c, i) => `
+        <div class="flight-card" style="flex-direction:column;align-items:stretch">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="flight-route">
+                ${c.leg1.from_city.city_name}
+                <span class="arrow">→</span>
+                ${c.leg1.to_city.city_name}
+                <span class="arrow">→</span>
+                ${c.leg2.to_city.city_name}
+                <span class="badge badge-blue">1 Stop</span>
+              </div>
+              <div class="flight-times">
+                ${formatTime(c.leg1.departure_time)} → ${formatTime(c.leg2.arrival_time)}
+                &nbsp;·&nbsp; ${c.total_duration_minutes}m total
+              </div>
+              <div class="layover-info">
+                Layover: ${c.layover_minutes} min in ${c.leg1.to_city.city_name}
+                &nbsp;·&nbsp; ${c.leg1.flight_id} + ${c.leg2.flight_id}
+              </div>
+            </div>
+            <div class="flight-meta">
+              <span class="flight-price">${c.total_price} ₺</span>
+              <span class="flight-seats">${Math.min(c.leg1.seats_available, c.leg2.seats_available)} seats left</span>
+              <button class="btn btn-primary" style="margin-top:0.4rem"
+                onclick="book('${c.leg1._id}', 'connected', '${c.leg2._id}')">Book</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    el.innerHTML = html;
+  }
+
+  function book(flightId, type, leg2Id = '') {
+    const params = new URLSearchParams({ flightId, type });
+    if (leg2Id) params.set('leg2Id', leg2Id);
+    window.location.href = `booking.html?${params}`;
+  }
+
+  loadCities();
+</script>
+</body>
+</html>
