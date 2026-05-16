@@ -63,33 +63,22 @@ No separate install or build step needed.
 - Connected flights via graph algorithm
 
 ## Project Structure
+```
 frontend/
-
 ├── index.html           # Home — search + all flights
-
 ├── booking.html         # Seat map + passenger form
-
 ├── confirmation.html    # Booking confirmation + download
-
 ├── login.html           # User login
-
 ├── register.html        # User registration
-
 ├── profile.html         # User ticket management
-
 ├── admin/
-
 │   ├── login.html       # Admin login
-
 │   └── dashboard.html   # Admin panel
-
 ├── css/
-
 │   └── style.css        # Global styles
-
 └── js/
-
 └── api.js           # All API calls in one place
+```
 
 ## Admin Credentials
 
