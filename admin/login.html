@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login – FlyTicket</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="../index.html">✈ FlyTicket</a>
+</nav>
+
+<div class="container" style="max-width:400px">
+  <div class="card" style="margin-top:4rem">
+    <h1 style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem">Admin Login</h1>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem">FlyTicket Management Panel</p>
+
+    <div id="alertBox"></div>
+
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="admin"/>
+    </div>
+    <div class="form-group" style="margin-bottom:1.2rem">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') handleAdminLogin()"/>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="handleAdminLogin()">Login</button>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  // Redirect if already logged in
+  async function checkSession() {
+    try {
+      const res = await api.checkSession();
+      if (res.isAdmin) window.location.href = 'dashboard.html';
+    } catch {}
+  }
+
+  async function handleAdminLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const alertBox = document.getElementById('alertBox');
+
+    if (!username || !password) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`;
+      return;
+    }
+
+    try {
+      await api.adminLogin({ username, password });
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.error || 'Login failed.'}</div>`;
+    }
+  }
+
+  checkSession();
+</script>
+</body>
+</html>

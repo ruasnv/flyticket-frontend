@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register – FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <a href="login.html">Already have an account? Login</a>
+</nav>
+
+<div class="container" style="max-width:420px">
+  <div class="card" style="margin-top:4rem">
+    <h1 style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem">Create Account</h1>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem">
+      Book and manage your flights easily.
+    </p>
+
+    <div id="alertBox"></div>
+
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Full Name</label>
+      <input type="text" id="name" placeholder="e.g. Ahmet Yılmaz"/>
+    </div>
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="e.g. ahmet@email.com"/>
+    </div>
+    <div class="form-group" style="margin-bottom:1.2rem">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Min. 6 characters"
+        onkeydown="if(event.key==='Enter') handleRegister()"/>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="handleRegister()">
+      Create Account
+    </button>
+    <p style="text-align:center;margin-top:1rem;font-size:0.85rem;color:var(--muted)">
+      Already have an account? <a href="login.html" style="color:var(--primary)">Login</a>
+    </p>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  async function handleRegister() {
+    const name     = document.getElementById('name').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const alertBox = document.getElementById('alertBox');
+    const params   = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    window.location.href = redirect || 'profile.html';
+    if (!name || !email || !password) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`;
+      return;
+    }
+
+    try {
+      await api.register({ name, email, password });
+      window.location.href = 'profile.html';
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.error || 'Registration failed.'}</div>`;
+    }
+  }
+</script>
+</body>
+</html>

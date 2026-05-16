@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard – FlyTicket</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="../index.html">✈ FlyTicket</a>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <span id="adminName" style="font-size:0.85rem;color:var(--muted)"></span>
+    <button class="btn btn-outline" style="padding:0.4rem 1rem;font-size:0.85rem"
+      onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container" style="max-width:1100px">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:1.5rem 0 1rem">
+    <div style="display:flex;gap:0.5rem">
+      <button class="btn" id="tabFlights"
+        style="font-size:0.9rem"
+        onclick="switchTab('flights')">✈ Flights</button>
+      <button class="btn" id="tabBookings"
+        style="font-size:0.9rem"
+        onclick="switchTab('bookings')">🎫 Bookings</button>
+    </div>
+    <button class="btn btn-primary" id="addFlightBtn" onclick="openModal()">+ Add New Flight</button>
+  </div>
+
+  <!-- Bookings Table (hidden by default) -->
+  <div id="bookingsSection" style="display:none">
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticket ID</th>
+            <th>Passenger</th>
+            <th>Email</th>
+            <th>Flight</th>
+            <th>Route</th>
+            <th>Seat</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bookingsBody">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted)">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="alertBox"></div>
+
+  <!-- Flights Table -->
+  <div class="card" id="flightsSection" style="padding:0;overflow:hidden">
+    <table id="flightsTable">
+      <thead>
+        <tr>
+          <th>Flight ID</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Departure</th>
+          <th>Arrival</th>
+          <th>Price</th>
+          <th>Seats</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="flightsBody">
+        <tr><td colspan="8" style="text-align:center;color:var(--muted)">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Modal Overlay -->
+<div id="modalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);
+  z-index:100;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:560px;max-height:90vh;overflow-y:auto;margin:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <h2 id="modalTitle" style="font-size:1rem;font-weight:700">Add New Flight</h2>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:1.2rem;
+        cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+
+    <div id="modalAlert"></div>
+
+    <div class="booking-form">
+      <div class="form-group">
+        <label>Flight ID</label>
+        <input type="text" id="f_flightId" placeholder="e.g. FT020"/>
+      </div>
+      <div class="form-group">
+        <label>Price (₺)</label>
+        <input type="number" id="f_price" placeholder="e.g. 950"/>
+      </div>
+      <div class="form-group">
+        <label>From City</label>
+        <select id="f_from"></select>
+      </div>
+      <div class="form-group">
+        <label>To City</label>
+        <select id="f_to"></select>
+      </div>
+      <div class="form-group">
+        <label>Departure Time</label>
+        <input type="datetime-local" id="f_departure"/>
+      </div>
+      <div class="form-group">
+        <label>Arrival Time</label>
+        <input type="datetime-local" id="f_arrival"/>
+      </div>
+      <div class="form-group">
+        <label>Total Seats</label>
+        <input type="number" id="f_seats" placeholder="e.g. 120"/>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0.75rem;margin-top:1.2rem">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveFlight()">Save Flight</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  let cities = [];
+  let editingId = null;
+
+  function switchTab(tab) {
+    const flightsSection  = document.getElementById('flightsSection');
+    const bookingsSection = document.getElementById('bookingsSection');
+    const addBtn          = document.getElementById('addFlightBtn');
+    const tabF            = document.getElementById('tabFlights');
+    const tabB            = document.getElementById('tabBookings');
+
+    if (tab === 'flights') {
+      flightsSection.style.display  = 'block';
+      bookingsSection.style.display = 'none';
+      addBtn.style.display          = 'block';
+      tabF.className = 'btn btn-primary';
+      tabB.className = 'btn btn-outline';
+    } else {
+      flightsSection.style.display  = 'none';
+      bookingsSection.style.display = 'block';
+      addBtn.style.display          = 'none';
+      tabB.className = 'btn btn-primary';
+      tabF.className = 'btn btn-outline';
+      loadBookings();
+    }
+  }
+
+  async function loadBookings() {
+    try {
+      const tickets = await api.getAdminTickets();
+      const tbody   = document.getElementById('bookingsBody');
+
+      if (!tickets.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted)">No bookings yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = tickets.map(t => {
+        const f = t.flight_id;
+        return `<tr>
+          <td style="font-family:monospace;font-size:0.78rem">${t.ticket_id.slice(0, 8)}...</td>
+          <td>${t.passenger_name} ${t.passenger_surname}</td>
+          <td>${t.passenger_email}</td>
+          <td>${f?.flight_id || '-'}</td>
+          <td>${f?.from_city?.city_name || '-'} → ${f?.to_city?.city_name || '-'}</td>
+          <td>${t.seat_number || '-'}</td>
+          <td>
+            <button class="btn btn-danger" style="padding:0.3rem 0.8rem;font-size:0.8rem"
+              onclick="adminCancel('${t._id}')">Cancel</button>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function adminCancel(id) {
+    if (!confirm('Cancel this booking? The seat will be restored.')) return;
+    try {
+      await api.adminCancelTicket(id);
+      showAlert('Booking cancelled.', 'success');
+      loadBookings();
+    } catch (err) {
+      showAlert(err.error || 'Failed to cancel.', 'error');
+    }
+  }
+
+  function formatDateTime(dt) {
+    const d = new Date(dt);
+    return d.toLocaleDateString('tr-TR') + ' ' +
+      d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Check session
+  async function checkSession() {
+    try {
+      const res = await api.checkSession();
+      if (!res.isAdmin) {
+        window.location.href = 'login.html';
+      } else {
+        document.getElementById('adminName').textContent = res.username;
+      }
+    } catch {
+      window.location.href = 'login.html';
+    }
+  }
+
+  async function loadCities() {
+    cities = await api.getCities();
+    const opts = cities.map(c => `<option value="${c._id}">${c.city_name}</option>`).join('');
+    document.getElementById('f_from').innerHTML = opts;
+    document.getElementById('f_to').innerHTML   = opts;
+  }
+
+  async function loadFlights() {
+    try {
+      const flights = await api.getAllFlights();
+      const tbody = document.getElementById('flightsBody');
+
+      if (!flights.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted)">No flights yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = flights.map(f => `
+        <tr>
+          <td><strong>${f.flight_id}</strong></td>
+          <td>${f.from_city?.city_name || '-'}</td>
+          <td>${f.to_city?.city_name || '-'}</td>
+          <td>${formatDateTime(f.departure_time)}</td>
+          <td>${formatDateTime(f.arrival_time)}</td>
+          <td>${f.price} ₺</td>
+          <td>${f.seats_available} / ${f.seats_total}</td>
+          <td>
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn btn-outline" style="padding:0.3rem 0.8rem;font-size:0.8rem"
+                onclick="openEdit('${f._id}')">Edit</button>
+              <button class="btn btn-danger" style="padding:0.3rem 0.8rem;font-size:0.8rem"
+                onclick="deleteFlight('${f._id}', '${f.flight_id}')">Delete</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function openModal(id = null) {
+    editingId = null;
+    document.getElementById('modalTitle').textContent = 'Add New Flight';
+    document.getElementById('f_flightId').value  = '';
+    document.getElementById('f_price').value     = '';
+    document.getElementById('f_departure').value = '';
+    document.getElementById('f_arrival').value   = '';
+    document.getElementById('f_seats').value     = '';
+    document.getElementById('modalAlert').innerHTML = '';
+    document.getElementById('modalOverlay').style.display = 'flex';
+  }
+
+  async function openEdit(id) {
+    try {
+      const f = await api.getFlight(id);
+      editingId = id;
+      document.getElementById('modalTitle').textContent = 'Edit Flight';
+
+      document.getElementById('f_flightId').value  = f.flight_id;
+      document.getElementById('f_price').value     = f.price;
+      document.getElementById('f_seats').value     = f.seats_total;
+      document.getElementById('f_from').value      = f.from_city._id;
+      document.getElementById('f_to').value        = f.to_city._id;
+
+      // Format for datetime-local input
+      const toLocal = (dt) => new Date(dt).toISOString().slice(0, 16);
+      document.getElementById('f_departure').value = toLocal(f.departure_time);
+      document.getElementById('f_arrival').value   = toLocal(f.arrival_time);
+      document.getElementById('modalAlert').innerHTML = '';
+      document.getElementById('modalOverlay').style.display = 'flex';
+    } catch (err) {
+      showAlert('Failed to load flight.', 'error');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').style.display = 'none';
+    editingId = null;
+  }
+
+  async function saveFlight() {
+    const body = {
+      flight_id:      document.getElementById('f_flightId').value.trim(),
+      from_city:      document.getElementById('f_from').value,
+      to_city:        document.getElementById('f_to').value,
+      departure_time: document.getElementById('f_departure').value,
+      arrival_time:   document.getElementById('f_arrival').value,
+      price:          Number(document.getElementById('f_price').value),
+      seats_total:    Number(document.getElementById('f_seats').value),
+    };
+
+    const alertEl = document.getElementById('modalAlert');
+
+    if (!body.flight_id || !body.departure_time || !body.arrival_time || !body.price || !body.seats_total) {
+      alertEl.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`;
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await api.updateFlight(editingId, body);
+      } else {
+        await api.createFlight(body);
+      }
+      closeModal();
+      showAlert(`Flight ${body.flight_id} saved successfully.`, 'success');
+      loadFlights();
+    } catch (err) {
+      const msg = err.errors ? err.errors.join('<br>') : (err.error || 'Failed to save flight.');
+      alertEl.innerHTML = `<div class="alert alert-error">${msg}</div>`;
+    }
+  }
+
+  async function deleteFlight(id, flightId) {
+    if (!confirm(`Delete flight ${flightId}? This cannot be undone.`)) return;
+    try {
+      await api.deleteFlight(id);
+      showAlert(`Flight ${flightId} deleted.`, 'success');
+      loadFlights();
+    } catch (err) {
+      showAlert(err.error || 'Failed to delete flight.', 'error');
+    }
+  }
+
+  async function logout() {
+    await api.adminLogout();
+    window.location.href = 'login.html';
+  }
+
+  function showAlert(msg, type) {
+    const el = document.getElementById('alertBox');
+    el.innerHTML = `<div class="alert alert-${type === 'error' ? 'error' : 'success'}">${msg}</div>`;
+    setTimeout(() => el.innerHTML = '', 3000);
+  }
+
+  // Close modal on overlay click
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  });
+
+  // Init
+  checkSession();
+  loadCities();
+  loadFlights();
+  switchTab('flights');
+</script>
+</body>
+</html>

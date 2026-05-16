@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Flight – FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .seat-map {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      align-items: center;
+      margin: 1.2rem 0;
+    }
+
+    .seat-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .seat-row-label {
+      width: 1.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .seat-aisle { width: 1.5rem; }
+
+    .seat {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 6px 6px 4px 4px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .seat:hover:not(.taken):not(.selected) {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #eff6ff;
+    }
+
+    .seat.taken {
+      background: var(--border);
+      color: #94a3b8;
+      cursor: not-allowed;
+      border-color: var(--border);
+    }
+
+    .seat.selected {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .seat-legend {
+      display: flex;
+      gap: 1.2rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .legend-dot {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 3px;
+      border: 1.5px solid var(--border);
+    }
+
+    .legend-dot.available { background: var(--card); }
+    .legend-dot.taken     { background: var(--border); }
+    .legend-dot.selected  { background: var(--primary); border-color: var(--primary); }
+
+    .seat-cols-header {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.2rem;
+      padding-left: 1.85rem;
+    }
+
+    .seat-col-label {
+      width: 2rem;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .plane-nose {
+      font-size: 2rem;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      line-height: 1;
+    }
+
+    .selected-seat-display {
+      text-align: center;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--primary);
+      min-height: 1.4rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <a href="index.html" style="font-size:0.85rem">← Back to Search</a>
+    <div id="navUser"></div>
+    <a href="admin/login.html" style="font-size:0.85rem;color:var(--muted)">Admin</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Flight Summary -->
+  <div class="card" id="flightSummary">
+    <p class="empty">Loading flight details...</p>
+  </div>
+
+  <!-- Seat Selection -->
+  <div class="card" id="seatSection" style="display:none">
+    <h2 style="font-size:1rem;font-weight:700;margin-bottom:0.2rem">Select Your Seat</h2>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem" id="seatSubtitle"></p>
+
+    <div class="seat-legend">
+      <div class="legend-item"><div class="legend-dot available"></div> Available</div>
+      <div class="legend-item"><div class="legend-dot taken"></div> Taken</div>
+      <div class="legend-item"><div class="legend-dot selected"></div> Your Seat</div>
+    </div>
+
+    <div class="plane-nose">🛫</div>
+
+    <!-- Leg 1 seat map -->
+    <div id="seatMap1"></div>
+    <div class="selected-seat-display" id="selectedDisplay1"></div>
+
+    <!-- Leg 2 seat map (connected flights only) -->
+    <div id="leg2SeatSection" style="display:none">
+      <hr style="margin:1.5rem 0;border:none;border-top:2px dashed var(--border)"/>
+      <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;text-align:center">
+        Leg 2 — Select Seat
+      </h3>
+      <div id="seatMap2"></div>
+      <div class="selected-seat-display" id="selectedDisplay2"></div>
+    </div>
+  </div>
+
+  <!-- Passenger Form -->
+  <div class="card" id="passengerSection" style="display:none">
+    <h2 style="margin-bottom:1.2rem;font-size:1rem;font-weight:700">Passenger Information</h2>
+    <div id="alertBox"></div>
+    <div class="booking-form">
+      <div class="form-group">
+        <label>First Name</label>
+        <input type="text" id="firstName" placeholder="e.g. Ahmet"/>
+      </div>
+      <div class="form-group">
+        <label>Last Name</label>
+        <input type="text" id="lastName" placeholder="e.g. Yılmaz"/>
+      </div>
+      <div class="form-group full-width">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="e.g. ahmet@email.com"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:1.2rem;width:100%"
+      onclick="confirmBooking()">Confirm Booking</button>
+  </div>
+
+</div>
+<script src="js/api.js"></script>
+<script>
+  const params   = new URLSearchParams(window.location.search);
+  const flightId = params.get('flightId');
+  const type     = params.get('type');
+  const leg2Id   = params.get('leg2Id');
+
+  let selectedSeat1 = null;
+  let selectedSeat2 = null;
+
+  const COLS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  function seatId(row, col) { return `${col}${row}`; }
+
+  function buildSeatMap(containerId, takenSeats, leg, totalSeats) {
+    const rows = Math.ceil(totalSeats / 6);
+    const container = document.getElementById(containerId);
+    let html = `
+      <div class="seat-cols-header">
+        <div class="seat-col-label">A</div>
+        <div class="seat-col-label">B</div>
+        <div class="seat-col-label">C</div>
+        <div class="seat-aisle"></div>
+        <div class="seat-col-label">D</div>
+        <div class="seat-col-label">E</div>
+        <div class="seat-col-label">F</div>
+      </div>
+      <div class="seat-map">`;
+
+    for (let row = 1; row <= rows; row++) {
+      html += `<div class="seat-row"><span class="seat-row-label">${row}</span>`;
+      COLS.forEach((col, i) => {
+        if (i === 3) html += `<div class="seat-aisle"></div>`;
+        const id = seatId(row, col);
+        const taken = takenSeats.includes(id);
+        html += `<div class="seat ${taken ? 'taken' : ''}"
+          id="seat-${leg}-${id}"
+          onclick="${taken ? '' : `selectSeat(${leg}, '${id}')`}"
+          title="${id}">${id}</div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  function selectSeat(leg, id) {
+    if (leg === 1) {
+      if (selectedSeat1) document.getElementById(`seat-1-${selectedSeat1}`)?.classList.remove('selected');
+      selectedSeat1 = id;
+      document.getElementById(`seat-1-${id}`).classList.add('selected');
+      document.getElementById('selectedDisplay1').textContent = `Selected: Seat ${id}`;
+    } else {
+      if (selectedSeat2) document.getElementById(`seat-2-${selectedSeat2}`)?.classList.remove('selected');
+      selectedSeat2 = id;
+      document.getElementById(`seat-2-${id}`).classList.add('selected');
+      document.getElementById('selectedDisplay2').textContent = `Selected: Seat ${id}`;
+    }
+  }
+
+  function formatTime(dt) {
+    return new Date(dt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function formatDate(dt) {
+    return new Date(dt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  async function loadSummary() {
+    try {
+      const f = await api.getFlight(flightId);
+      let html = '';
+
+      if (type === 'direct') {
+        html = `
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="flight-route" style="margin-bottom:0.4rem">
+                ${f.from_city.city_name} <span class="arrow">→</span> ${f.to_city.city_name}
+                <span class="badge badge-green">Direct</span>
+              </div>
+              <div class="flight-times">
+                ${formatDate(f.departure_time)} · ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
+                &nbsp;·&nbsp; ${f.flight_id}
+              </div>
+            </div>
+            <div class="flight-meta">
+              <span class="flight-price">${f.price} ₺</span>
+              <span class="flight-seats">${f.seats_available} seats left</span>
+            </div>
+          </div>`;
+        const { takenSeats } = await api.getSeats(flightId);
+        document.getElementById('seatSubtitle').textContent =
+          `${f.seats_available} of ${f.seats_total} seats available`;
+        buildSeatMap('seatMap1', takenSeats, 1, f.seats_total);
+
+      } else {
+        const f2 = await api.getFlight(leg2Id);
+        const totalPrice = f.price + f2.price;
+        const layover = Math.round((new Date(f2.departure_time) - new Date(f.arrival_time)) / 60000);
+        html = `
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="flight-route" style="margin-bottom:0.4rem">
+                ${f.from_city.city_name} <span class="arrow">→</span>
+                ${f.to_city.city_name} <span class="arrow">→</span>
+                ${f2.to_city.city_name}
+                <span class="badge badge-blue">1 Stop</span>
+              </div>
+              <div class="flight-times">
+                ${formatDate(f.departure_time)} · ${formatTime(f.departure_time)} → ${formatTime(f2.arrival_time)}
+              </div>
+              <div class="layover-info">
+                Layover: ${layover} min in ${f.to_city.city_name}
+                &nbsp;·&nbsp; ${f.flight_id} + ${f2.flight_id}
+              </div>
+            </div>
+            <div class="flight-meta">
+              <span class="flight-price">${totalPrice} ₺</span>
+              <span class="flight-seats">${Math.min(f.seats_available, f2.seats_available)} seats left</span>
+            </div>
+          </div>`;
+        const [seats1, seats2] = await Promise.all([api.getSeats(flightId), api.getSeats(leg2Id)]);
+        document.getElementById('seatSubtitle').textContent =
+          `Leg 1 — ${f.from_city.city_name} → ${f.to_city.city_name}`;
+        buildSeatMap('seatMap1', seats1.takenSeats, 1, f.seats_total);
+        document.getElementById('leg2SeatSection').style.display = 'block';
+        buildSeatMap('seatMap2', seats2.takenSeats, 2, f2.seats_total);
+      }
+
+      document.getElementById('flightSummary').innerHTML = html;
+      document.getElementById('seatSection').style.display = 'block';
+      document.getElementById('passengerSection').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('flightSummary').innerHTML =
+        `<div class="alert alert-error">Failed to load flight details.</div>`;
+    }
+  }
+
+  async function confirmBooking() {
+    const name     = document.getElementById('firstName').value.trim();
+    const surname  = document.getElementById('lastName').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const alertBox = document.getElementById('alertBox');
+
+    if (!name || !surname || !email) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`; return;
+    }
+    if (!email.includes('@')) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please enter a valid email address.</div>`; return;
+    }
+    if (!selectedSeat1) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please select a seat before confirming.</div>`; return;
+    }
+    if (type === 'connected' && !selectedSeat2) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please select a seat for Leg 2 as well.</div>`; return;
+    }
+
+    alertBox.innerHTML = '';
+    try {
+      const ticket1 = await api.bookTicket({
+        passenger_name: name, passenger_surname: surname,
+        passenger_email: email, flight_id: flightId, seat_number: selectedSeat1
+      });
+      let ticket2 = null;
+      if (type === 'connected' && leg2Id) {
+        ticket2 = await api.bookTicket({
+          passenger_name: name, passenger_surname: surname,
+          passenger_email: email, flight_id: leg2Id, seat_number: selectedSeat2
+        });
+      }
+      sessionStorage.setItem('booking', JSON.stringify({ ticket1, ticket2 }));
+      const confirmParams = new URLSearchParams({ ticketId: ticket1.ticket_id, type });
+      if (ticket2) confirmParams.set('ticketId2', ticket2.ticket_id);
+      window.location.href = `confirmation.html?${confirmParams}`;
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.error || 'Booking failed. Please try again.'}</div>`;
+    }
+  }
+
+  // ✅ Single init function — checks login first, then loads everything
+  async function init() {
+    const user = await api.checkUser();
+    if (!user.loggedIn) {
+      window.location.href = `login.html?redirect=booking.html?${window.location.search.slice(1)}`;
+      return;
+    }
+    // Pre-fill passenger form
+    const nameParts = user.name.split(' ');
+    document.getElementById('firstName').value = nameParts[0] || '';
+    document.getElementById('lastName').value  = nameParts.slice(1).join(' ') || '';
+
+    await loadSummary();
+  }
+
+  init();
+</script>
+</body>
+</html>

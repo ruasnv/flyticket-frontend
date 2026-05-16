@@ -10,7 +10,10 @@
 
 <nav>
   <a class="logo" href="index.html">✈ FlyTicket</a>
-  <a href="admin/login.html">Admin</a>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div id="navUser"></div>
+    <a href="admin/login.html" style="font-size:0.85rem;color:var(--muted)">Admin</a>
+  </div>
 </nav>
 
 <div class="container">
@@ -35,7 +38,10 @@
   </div>
 
   <!-- Results -->
-  <div id="results"></div>
+<div id="results">
+  <p class="section-title" id="allFlightsTitle" style="margin-top:1rem">All Available Flights</p>
+  <div id="allFlights"><p class="empty">Loading flights...</p></div>
+</div>
 
 </div>
 
@@ -92,20 +98,28 @@
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   }
 
-  function renderResults(data) {
-    const el = document.getElementById('results');
-    const { direct, connected } = data;
+  function book(flightId, type, leg2Id = '') {
+    const params = new URLSearchParams({ flightId, type });
+    if (leg2Id) params.set('leg2Id', leg2Id);
+    window.location.href = `booking.html?${params}`;
+  }
 
-    if (!direct.length && !connected.length) {
-      el.innerHTML = `<div class="empty">😕 No flights found for this route and date.</div>`;
-      return;
-    }
+  async function loadAllFlights() {
+    try {
+      const flights = await api.getAllFlights();
+      const el = document.getElementById('allFlights');
+      const titleEl = document.getElementById('allFlightsTitle');
 
-    let html = '';
+      // Filter only future flights
+      const upcoming = flights.filter(f => new Date(f.departure_time) > new Date());
 
-    if (direct.length) {
-      html += `<p class="section-title">Direct Flights</p>`;
-      html += direct.map(f => `
+      if (!upcoming.length) {
+        el.innerHTML = `<div class="empty">No upcoming flights available. Check back later or ask an admin to add flights.</div>`;
+        return;
+      }
+
+      titleEl.textContent = `All Available Flights (${upcoming.length})`;
+      el.innerHTML = upcoming.map(f => `
         <div class="flight-card">
           <div>
             <div class="flight-route">
@@ -115,8 +129,53 @@
               <span class="badge badge-green">Direct</span>
             </div>
             <div class="flight-times">
-              ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
-              &nbsp;·&nbsp; ${formatDuration(f.departure_time, f.arrival_time)}
+              ${formatDate(f.departure_time)} · ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
+              &nbsp;·&nbsp; ${f.flight_id}
+            </div>
+          </div>
+          <div class="flight-meta">
+            <span class="flight-price">${f.price} ₺</span>
+            <span class="flight-seats">${f.seats_available} seats left</span>
+            <button class="btn btn-primary" style="margin-top:0.4rem"
+              onclick="book('${f._id}', 'direct')">Book</button>
+          </div>
+        </div>`).join('');
+    } catch (err) {
+      document.getElementById('allFlights').innerHTML =
+        `<div class="alert alert-error">Failed to load flights.</div>`;
+    }
+  }
+
+  // Also add formatDate here since it's used above
+  function formatDate(dt) {
+    return new Date(dt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  // Update renderResults to hide the allFlights section when search results show
+  function renderResults(data) {
+    document.getElementById('allFlightsTitle').style.display = 'none';
+    document.getElementById('allFlights').style.display = 'none';
+
+    const el = document.getElementById('results');
+    const { direct, connected } = data;
+
+    if (!direct.length && !connected.length) {
+      el.innerHTML = `<div class="empty"> No flights found for this route and date.</div>`;
+      return;
+    }
+
+    let html = '';
+    if (direct.length) {
+      html += `<p class="section-title">Direct Flights</p>`;
+      html += direct.map(f => `
+        <div class="flight-card">
+          <div>
+            <div class="flight-route">
+              ${f.from_city.city_name} <span class="arrow">→</span> ${f.to_city.city_name}
+              <span class="badge badge-green">Direct</span>
+            </div>
+            <div class="flight-times">
+              ${formatDate(f.departure_time)} · ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
               &nbsp;·&nbsp; ${f.flight_id}
             </div>
           </div>
@@ -131,20 +190,18 @@
 
     if (connected.length) {
       html += `<p class="section-title">Connecting Flights</p>`;
-      html += connected.map((c, i) => `
+      html += connected.map(c => `
         <div class="flight-card" style="flex-direction:column;align-items:stretch">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div class="flight-route">
-                ${c.leg1.from_city.city_name}
-                <span class="arrow">→</span>
-                ${c.leg1.to_city.city_name}
-                <span class="arrow">→</span>
+                ${c.leg1.from_city.city_name} <span class="arrow">→</span>
+                ${c.leg1.to_city.city_name} <span class="arrow">→</span>
                 ${c.leg2.to_city.city_name}
                 <span class="badge badge-blue">1 Stop</span>
               </div>
               <div class="flight-times">
-                ${formatTime(c.leg1.departure_time)} → ${formatTime(c.leg2.arrival_time)}
+                ${formatDate(c.leg1.departure_time)} · ${formatTime(c.leg1.departure_time)} → ${formatTime(c.leg2.arrival_time)}
                 &nbsp;·&nbsp; ${c.total_duration_minutes}m total
               </div>
               <div class="layover-info">
@@ -165,13 +222,9 @@
     el.innerHTML = html;
   }
 
-  function book(flightId, type, leg2Id = '') {
-    const params = new URLSearchParams({ flightId, type });
-    if (leg2Id) params.set('leg2Id', leg2Id);
-    window.location.href = `booking.html?${params}`;
-  }
-
   loadCities();
+  loadAllFlights();
+  loadNav();
 </script>
 </body>
 </html>

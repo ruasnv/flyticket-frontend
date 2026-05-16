@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Profile – FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <span id="userName" style="font-size:0.85rem;color:var(--muted)"></span>
+    <button class="btn btn-outline" style="padding:0.4rem 1rem;font-size:0.85rem"
+      onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="container">
+  <div style="margin:1.5rem 0 1rem;display:flex;justify-content:space-between;align-items:center">
+    <h1 style="font-size:1.1rem;font-weight:700">My Tickets</h1>
+    <a href="index.html" class="btn btn-primary">+ Book New Flight</a>
+  </div>
+
+  <div id="alertBox"></div>
+  <div id="ticketList"><p class="empty">Loading your tickets...</p></div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  function formatTime(dt) {
+    return new Date(dt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function formatDate(dt) {
+    return new Date(dt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  async function checkSession() {
+    try {
+      const res = await api.checkUser();
+      if (!res.loggedIn) {
+        window.location.href = 'login.html';
+      } else {
+        document.getElementById('userName').textContent = res.name;
+      }
+    } catch {
+      window.location.href = 'login.html';
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      const tickets = await api.getUserTickets();
+      const el = document.getElementById('ticketList');
+
+      if (!tickets.length) {
+        el.innerHTML = `<div class="empty">
+          😕 You have no bookings yet.
+          <br><br>
+          <a href="index.html" class="btn btn-primary">Search Flights</a>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = tickets.map(t => {
+        const f = t.flight_id;
+        const isPast = new Date(f.departure_time) < new Date();
+        return `
+          <div class="flight-card" style="flex-direction:column;align-items:stretch">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="flight-route" style="margin-bottom:0.3rem">
+                  ${f.from_city.city_name}
+                  <span class="arrow">→</span>
+                  ${f.to_city.city_name}
+                  ${isPast
+                    ? `<span class="badge" style="background:#f1f5f9;color:var(--muted)">Past</span>`
+                    : `<span class="badge badge-green">Upcoming</span>`}
+                </div>
+                <div class="flight-times">
+                  ${formatDate(f.departure_time)} · ${formatTime(f.departure_time)} → ${formatTime(f.arrival_time)}
+                  &nbsp;·&nbsp; ${f.flight_id}
+                </div>
+                <div class="layover-info" style="margin-top:0.3rem">
+                  Seat: <strong>${t.seat_number}</strong>
+                  &nbsp;·&nbsp; Ticket: <span style="font-family:monospace;font-size:0.78rem">${t.ticket_id.slice(0,8)}...</span>
+                </div>
+              </div>
+              <div class="flight-meta">
+                <span class="flight-price">${f.price} ₺</span>
+                ${!isPast ? `
+                  <button class="btn btn-danger" style="padding:0.3rem 0.9rem;font-size:0.82rem;margin-top:0.5rem"
+                    onclick="cancelTicket('${t._id}', '${f.flight_id}')">
+                    Cancel
+                  </button>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      document.getElementById('ticketList').innerHTML =
+        `<div class="alert alert-error">Failed to load tickets.</div>`;
+    }
+  }
+
+  async function cancelTicket(ticketId, flightId) {
+    if (!confirm(`Cancel your ticket for flight ${flightId}? This cannot be undone.`)) return;
+    try {
+      await api.cancelTicket(ticketId);
+      showAlert('Ticket cancelled successfully.', 'success');
+      loadTickets();
+    } catch (err) {
+      showAlert(err.error || 'Failed to cancel ticket.', 'error');
+    }
+  }
+
+  async function logout() {
+    await api.userLogout();
+    window.location.href = 'index.html';
+  }
+
+  function showAlert(msg, type) {
+    const el = document.getElementById('alertBox');
+    el.innerHTML = `<div class="alert alert-${type === 'error' ? 'error' : 'success'}">${msg}</div>`;
+    setTimeout(() => el.innerHTML = '', 3000);
+  }
+
+  checkSession();
+  loadTickets();
+</script>
+</body>
+</html>

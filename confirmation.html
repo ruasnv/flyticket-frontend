@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Booking Confirmed – FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <a href="index.html">Search Again</a>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div id="navUser"></div>
+    <a href="admin/login.html" style="font-size:0.85rem;color:var(--muted)">Admin</a>
+  </div>
+</nav>
+
+<div class="container" style="max-width:600px">
+  <div class="card" style="margin-top:2rem">
+    <div class="confirm-icon">🎉</div>
+    <h1 style="text-align:center;font-size:1.2rem;margin-bottom:0.3rem">Booking Confirmed!</h1>
+    <p style="text-align:center;color:var(--muted);font-size:0.9rem;margin-bottom:1.5rem">
+      Your ticket details are below.
+    </p>
+    <div id="ticketDetails"><p class="empty">Loading...</p></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:1.2rem"
+      onclick="downloadTicket()">⬇ Download E-Ticket</button>
+    <button class="btn btn-outline" style="width:100%;margin-top:0.5rem"
+      onclick="window.location.href='index.html'">Back to Search</button>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  function formatTime(dt) {
+    return new Date(dt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function formatDate(dt) {
+    return new Date(dt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function renderTicket(ticket, label = '') {
+    const f = ticket.flight_id;
+    return `
+      ${label ? `<p class="section-title">${label}</p>` : ''}
+      <div class="confirm-detail"><span>Passenger</span><span>${ticket.passenger_name} ${ticket.passenger_surname}</span></div>
+      <div class="confirm-detail"><span>Email</span><span>${ticket.passenger_email}</span></div>
+      <div class="confirm-detail"><span>Ticket ID</span><span style="font-family:monospace;font-size:0.8rem">${ticket.ticket_id}</span></div>
+      <div class="confirm-detail"><span>Flight</span><span>${f.flight_id}</span></div>
+      <div class="confirm-detail"><span>From</span><span>${f.from_city.city_name}</span></div>
+      <div class="confirm-detail"><span>To</span><span>${f.to_city.city_name}</span></div>
+      <div class="confirm-detail"><span>Date</span><span>${formatDate(f.departure_time)}</span></div>
+      <div class="confirm-detail"><span>Departure</span><span>${formatTime(f.departure_time)}</span></div>
+      <div class="confirm-detail"><span>Arrival</span><span>${formatTime(f.arrival_time)}</span></div>
+      <div class="confirm-detail"><span>Seat</span><span>${ticket.seat_number}</span></div>
+      <div class="confirm-detail"><span>Price</span><span>${f.price} ₺</span></div>`;
+  }
+
+  function load() {
+    const booking = JSON.parse(sessionStorage.getItem('booking'));
+    if (!booking) {
+      document.getElementById('ticketDetails').innerHTML =
+        `<div class="alert alert-error">No booking data found.</div>`;
+      return;
+    }
+
+    window._bookingData = booking;
+    const { ticket1, ticket2 } = booking;
+    let html = '';
+
+    if (ticket2) {
+      html += renderTicket(ticket1, 'Leg 1');
+      html += `<div style="margin:1rem 0;border-top:2px dashed var(--border)"></div>`;
+      html += renderTicket(ticket2, 'Leg 2');
+      const total = ticket1.flight_id.price + ticket2.flight_id.price;
+      html += `<div class="confirm-detail" style="margin-top:0.5rem">
+        <span style="font-weight:700">Total Paid</span>
+        <span style="font-weight:700;color:var(--primary)">${total} ₺</span>
+      </div>`;
+    } else {
+      html = renderTicket(ticket1);
+    }
+
+    document.getElementById('ticketDetails').innerHTML = html;
+  }
+
+  function downloadTicket() {
+    // Use data already set by load() — don't re-fetch from storage
+    if (!window._bookingData) {
+      alert('No booking data found. Please try again.');
+      return;
+    }
+
+    const { ticket1, ticket2 } = window._bookingData;
+
+    function ticketText(t, label = '') {
+      const f = t.flight_id;
+      return `${label ? `--- ${label} ---` : '--- E-TICKET ---'}
+  Passenger : ${t.passenger_name} ${t.passenger_surname}
+  Email     : ${t.passenger_email}
+  Ticket ID : ${t.ticket_id}
+  Flight    : ${f.flight_id}
+  From      : ${f.from_city.city_name}
+  To        : ${f.to_city.city_name}
+  Date      : ${formatDate(f.departure_time)}
+  Departure : ${formatTime(f.departure_time)}
+  Arrival   : ${formatTime(f.arrival_time)}
+  Seat      : ${t.seat_number}
+  Price     : ${f.price} ₺`.trim();
+    }
+
+    let content = `FLYTICKET — BOOKING CONFIRMATION\n${'='.repeat(40)}\n\n`;
+    content += ticket2
+      ? ticketText(ticket1, 'LEG 1') + '\n\n' + ticketText(ticket2, 'LEG 2') + `\n\nTOTAL: ${ticket1.flight_id.price + ticket2.flight_id.price} ₺`
+      : ticketText(ticket1);
+    content += `\n\n${'='.repeat(40)}\nThank you for flying with FlyTicket! ✈`;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `flyticket-${ticket1.ticket_id.slice(0, 8)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+  load();
+</script>
+</body>
+</html>

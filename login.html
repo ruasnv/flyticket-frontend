@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – FlyTicket</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <a href="register.html">Create an account</a>
+</nav>
+
+<div class="container" style="max-width:420px">
+  <div class="card" style="margin-top:4rem">
+    <h1 style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem">Login</h1>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem">
+      Welcome back to FlyTicket.
+    </p>
+
+    <div id="alertBox"></div>
+
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="e.g. ahmet@email.com"/>
+    </div>
+    <div class="form-group" style="margin-bottom:1.2rem">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') handleLogin()"/>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%" onclick="handleLogin()">Login</button>
+    <p style="text-align:center;margin-top:1rem;font-size:0.85rem;color:var(--muted)">
+      Don't have an account? <a href="register.html" style="color:var(--primary)">Register</a>
+    </p>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  async function handleLogin() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const alertBox = document.getElementById('alertBox');
+
+  if (!email || !password) {
+    alertBox.innerHTML = `<div class="alert alert-error">Please fill in all fields.</div>`;
+    return;
+  }
+
+  try {
+    await api.userLogin({ email, password });
+    // Redirect back to where they came from, or profile
+    const params   = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    window.location.href = redirect || 'profile.html';
+  } catch (err) {
+    alertBox.innerHTML = `<div class="alert alert-error">${err.error || 'Login failed.'}</div>`;
+  }
+}
+</script>
+</body>
+</html>
