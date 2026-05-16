@@ -127,7 +127,7 @@
 <body>
 
 <nav>
-  <a class="logo" href="index.html">✈ FlyTicket</a>
+  <a class="logo" href="index.html">FlyTicket</a>
   <div style="display:flex;align-items:center;gap:1rem">
     <a href="index.html" style="font-size:0.85rem">← Back to Search</a>
     <div id="navUser"></div>
@@ -373,7 +373,7 @@
     }
   }
 
-  // ✅ Single init function — checks login first, then loads everything
+  // Single init function — checks login first, then loads everything
   async function init() {
     const user = await api.checkUser();
     if (!user.loggedIn) {

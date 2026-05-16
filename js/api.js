@@ -32,7 +32,6 @@ const api = {
   checkUser:        ()     => request('/users/me'),
   getUserTickets:   ()     => request('/users/tickets'),
   cancelTicket:     (id)   => request(`/users/tickets/${id}`,  { method: 'DELETE' }),
-
   // Admin tickets
   getAdminTickets:   ()    => request('/admin/tickets'),
   adminCancelTicket: (id)  => request(`/admin/tickets/${id}`,  { method: 'DELETE' }),
@@ -49,7 +48,7 @@ async function initNav() {
       navUser.innerHTML = `
         <a href="profile.html" 
           style="font-size:0.85rem;color:var(--primary);font-weight:600">
-          👤 ${res.name}
+          ${res.name}
         </a>
         <button class="btn btn-outline" 
           style="padding:0.3rem 0.8rem;font-size:0.82rem"
